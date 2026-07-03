@@ -14,6 +14,7 @@ import org.teamzemo.scarlet.ui.screens.HomeScreen
 import org.teamzemo.scarlet.ui.screens.LoginScreen
 import org.teamzemo.scarlet.ui.screens.MfaScreen
 import org.teamzemo.scarlet.ui.screens.RegisterScreen
+import org.teamzemo.scarlet.ui.screens.SettingsScreen
 import org.teamzemo.scarlet.ui.theme.ScarletTheme
 import org.teamzemo.scarlet.ui.viewmodel.AuthViewModel
 import org.teamzemo.scarlet.ui.viewmodel.AuthViewModelFactory
@@ -74,6 +75,19 @@ class MainActivity : ComponentActivity() {
                     composable("home") {
                         HomeScreen(
                             viewModel = viewModel,
+                            onNavigateToSettings = { navController.navigate("settings") },
+                            onLogout = {
+                                navController.navigate("login") {
+                                    popUpTo("home") { inclusive = true }
+                                }
+                            }
+                        )
+                    }
+
+                    composable("settings") {
+                        SettingsScreen(
+                            viewModel = viewModel,
+                            onNavigateBack = { navController.popBackStack() },
                             onLogout = {
                                 navController.navigate("login") {
                                     popUpTo("home") { inclusive = true }

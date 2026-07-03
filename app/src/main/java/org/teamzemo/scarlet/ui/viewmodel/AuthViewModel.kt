@@ -7,6 +7,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.credentials.CreatePublicKeyCredentialRequest
+import androidx.credentials.CreatePublicKeyCredentialResponse
+import androidx.credentials.PublicKeyCredential
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.GetPublicKeyCredentialOption
@@ -220,14 +222,29 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
                 val result = credentialManager.getCredential(context, request)
                 val credential = result.credential
 
-                if (credential is androidx.credentials.CustomCredential &&
-                    credential.type == "androidx.credentials.TYPE_PUBLIC_KEY_CREDENTIAL") {
-                    
-                    val responseJson = credential.data.getString("androidx.credentials.BUNDLE_KEY_SUBTYPE_PUBLIC_KEY_CREDENTIAL_RESPONSE")!!
+                if (credential is PublicKeyCredential) {
+                    val responseJson = credential.authenticationResponseJson
                     addLog("Received passkey assertion. Authenticating with backend...")
                     
-                    val credentialMap = gson.fromJson(responseJson, Map::class.java) as Map<String, Any>
-                    val verifyRes = repository.authenticatePasskey(credentialMap)
+                    val responseMap = gson.fromJson(responseJson, Map::class.java) as Map<String, Any>
+                    val id = responseMap["id"] as String
+                    val responseObj = responseMap["response"] as Map<String, Any>
+                    val clientDataJSON = responseObj["clientDataJSON"] as String
+                    val authenticatorData = responseObj["authenticatorData"] as String
+                    val signature = responseObj["signature"] as String
+                    val userHandle = responseObj["userHandle"] as? String
+
+                    val payload = mutableMapOf<String, Any>(
+                        "credentialId" to id,
+                        "clientDataJSON" to clientDataJSON,
+                        "authenticatorData" to authenticatorData,
+                        "signature" to signature
+                    )
+                    if (userHandle != null) {
+                        payload["userHandle"] = userHandle
+                    }
+
+                    val verifyRes = repository.authenticatePasskey(payload)
                     
                     if (verifyRes.isSuccessful) {
                         addLog("Passkey Authentication successful!")
@@ -243,8 +260,9 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
                     addLog("Error: Unexpected passkey type")
                 }
             } catch (e: Exception) {
-                state = state.copy(error = e.localizedMessage)
-                addLog("Passkey Login Failed: ${e.localizedMessage}")
+                state = state.copy(error = "${e.javaClass.simpleName}: ${e.message}")
+                addLog("Passkey Login Failed: ${e.javaClass.simpleName} - ${e.message}")
+                e.printStackTrace()
             } finally {
                 state = state.copy(isLoading = false)
             }
@@ -270,26 +288,40 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
                 val request = CreatePublicKeyCredentialRequest(optionsJson)
 
                 val result = credentialManager.createCredential(context, request)
-                val responseJson = result.data.getString("androidx.credentials.BUNDLE_KEY_SUBTYPE_PUBLIC_KEY_CREDENTIAL_RESPONSE")!!
-                addLog("Received passkey registration response. Registering on backend...")
+                if (result is CreatePublicKeyCredentialResponse) {
+                    val responseJson = result.registrationResponseJson
+                    addLog("Received passkey registration response. Registering on backend...")
 
-                val responseMap = gson.fromJson(responseJson, Map::class.java) as Map<String, Any>
-                
-                // Add default label
-                val finalMap = responseMap.toMutableMap().apply {
-                    put("label", "Android Device Passkey (${android.os.Build.MODEL})")
-                }
+                    val responseMap = gson.fromJson(responseJson, Map::class.java) as Map<String, Any>
+                    val id = responseMap["id"] as String
+                    val responseObj = responseMap["response"] as Map<String, Any>
+                    val clientDataJSON = responseObj["clientDataJSON"] as String
+                    val attestationObject = responseObj["attestationObject"] as String
+                    val transportsList = responseObj["transports"] as? List<String> ?: emptyList()
+                    val transportsStr = gson.toJson(transportsList)
 
-                val verifyRes = repository.registerPasskey(finalMap)
-                if (verifyRes.isSuccessful) {
-                    addLog("Passkey registered and saved successfully!")
-                    checkSession()
+                    val payload = mapOf(
+                        "credentialId" to id,
+                        "clientDataJSON" to clientDataJSON,
+                        "attestationObject" to attestationObject,
+                        "transports" to transportsStr,
+                        "label" to "Android Device Passkey (${android.os.Build.MODEL})"
+                    )
+
+                    val verifyRes = repository.registerPasskey(payload)
+                    if (verifyRes.isSuccessful) {
+                        addLog("Passkey registered and saved successfully!")
+                        checkSession()
+                    } else {
+                        val err = verifyRes.errorBody()?.string() ?: "Registration failed"
+                        addLog("Backend Passkey Registration Failed: $err")
+                    }
                 } else {
-                    val err = verifyRes.errorBody()?.string() ?: "Registration failed"
-                    addLog("Backend Passkey Registration Failed: $err")
+                    addLog("Unexpected create credential result type: ${result.javaClass.simpleName}")
                 }
             } catch (e: Exception) {
-                addLog("Passkey Creation Failed: ${e.localizedMessage}")
+                addLog("Passkey Creation Failed: ${e.javaClass.simpleName} - ${e.message}")
+                e.printStackTrace()
             }
         }
     }

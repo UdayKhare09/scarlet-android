@@ -55,13 +55,13 @@ interface ScarletApi {
     suspend fun getPasskeyRegisterOptions(): Response<Map<String, Any>>
 
     @POST("api/webauthn/register")
-    suspend fun registerPasskey(@Body response: Map<String, Any>): Response<Map<String, Any>>
+    suspend fun registerPasskey(@Body response: @JvmSuppressWildcards Map<String, Any>): Response<Map<String, Any>>
 
     @GET("api/webauthn/authenticate/options")
     suspend fun getPasskeyAuthOptions(@Query("email") email: String?): Response<Map<String, Any>>
 
     @POST("api/webauthn/authenticate")
-    suspend fun authenticatePasskey(@Body response: Map<String, Any>): Response<Map<String, Any>>
+    suspend fun authenticatePasskey(@Body response: @JvmSuppressWildcards Map<String, Any>): Response<Map<String, Any>>
 
     // MFA Management
     @GET("api/mfa/status")
