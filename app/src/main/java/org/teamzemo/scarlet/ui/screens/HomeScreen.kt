@@ -157,7 +157,7 @@ fun HomeScreen(
                 profile = state.profile,
                 onDismiss = { showAccountPopup = false },
                 onNavigateToSettings = onNavigateToSettings,
-                onLogout = onLogout
+                onLogout = { viewModel.logout(onLogout) }
             )
         }
     }
