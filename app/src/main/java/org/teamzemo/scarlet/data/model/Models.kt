@@ -59,7 +59,7 @@ data class UserProfile(
     val email: String,
     val firstName: String,
     val lastName: String,
-    val fullName: String,
+    val fullName: String?,
     val role: String,
     val profilePictureUrl: String?
 )

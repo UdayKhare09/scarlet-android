@@ -81,7 +81,8 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
                 val response = repository.getUserProfile()
                 if (response.isSuccessful && response.body() != null) {
                     state = state.copy(profile = response.body())
-                    addLog("Loaded profile for ${response.body()?.fullName}")
+                    val name = response.body()?.let { "${it.firstName} ${it.lastName}".trim() } ?: "User"
+                    addLog("Loaded profile for $name")
                 }
             } catch (e: Exception) {
                 addLog("Failed to fetch profile: ${e.localizedMessage}")

@@ -167,9 +167,12 @@ fun AccountPopup(
 
                                 Spacer(modifier = Modifier.height(12.dp))
 
-                                // Name
+                                val displayName = if (profile != null) {
+                                    "${profile.firstName} ${profile.lastName}".trim()
+                                } else "Uday Kiran"
+
                                 Text(
-                                    text = profile?.fullName ?: "Uday Kiran",
+                                    text = displayName,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 18.sp,
                                     color = MaterialTheme.colorScheme.onSurface
