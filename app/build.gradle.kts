@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -7,6 +9,15 @@ android {
     namespace = "org.teamzemo.scarlet"
     compileSdk = 37
 
+    val properties = Properties()
+    val localPropertiesFile = project.rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        val stream = localPropertiesFile.inputStream()
+        properties.load(stream)
+        stream.close()
+    }
+    val googleClientId = properties.getProperty("googleClientId", "your_google_client_id")
+
     defaultConfig {
         applicationId = "org.teamzemo.scarlet"
         minSdk = 34
@@ -15,6 +26,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "GOOGLE_CLIENT_ID", "\"$googleClientId\"")
     }
 
     buildTypes {
@@ -30,6 +42,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
