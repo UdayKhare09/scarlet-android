@@ -29,6 +29,7 @@ fun MfaScreen(
 
     LaunchedEffect(state.mfaType) {
         hasSentCode = false
+        code = ""
     }
 
     Box(
@@ -156,7 +157,16 @@ fun MfaScreen(
                     } else {
                         OutlinedTextField(
                             value = code,
-                            onValueChange = { if (it.length <= 6) code = it },
+                            onValueChange = { input ->
+                                val filtered = if (state.mfaType == "email_otp") {
+                                    input.uppercase()
+                                } else {
+                                    input.filter { it.isDigit() }
+                                }
+                                if (filtered.length <= 6) {
+                                    code = filtered
+                                }
+                            },
                             label = { Text("MFA Verification Code") },
                             leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                             modifier = Modifier.fillMaxWidth(),
