@@ -21,7 +21,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -144,7 +147,11 @@ fun LoginScreen(
                                 focusedBorderColor = Color.LightGray,
                                 unfocusedBorderColor = Color.LightGray
                             ),
-                            singleLine = true
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Email,
+                                imeAction = ImeAction.Next
+                            )
                         )
                     }
 
@@ -190,7 +197,11 @@ fun LoginScreen(
                                 focusedBorderColor = Color.LightGray,
                                 unfocusedBorderColor = Color.LightGray
                             ),
-                            singleLine = true
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Password,
+                                imeAction = ImeAction.Done
+                            )
                         )
                     }
 
