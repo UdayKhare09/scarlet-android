@@ -18,8 +18,8 @@ data class AuthResponse(
     val message: String?,
     val user: UserResponse?,
     val mfaRequired: Boolean = false,
-    val tempToken: String? = null,
-    val mfaType: String? = null
+    val pendingToken: String? = null,
+    val availableMfaMethods: List<String>? = null
 )
 
 data class LoginRequest(
@@ -51,7 +51,7 @@ data class CompleteMfaRequest(
 
 data class TotpSetupResponse(
     val secret: String,
-    val qrCodeUrl: String
+    val qrCodeBase64: String
 )
 
 data class UserProfile(
@@ -76,12 +76,19 @@ data class UserSession(
 )
 
 data class MfaStatusResponse(
-    val enabled: Boolean,
-    val type: String?,
-    val secret: String?,
-    val qrCodeUrl: String?
+    val emailOtpEnabled: Boolean,
+    val totpEnabled: Boolean,
+    val totpConfirmed: Boolean
 )
 
 data class MessageResponse(
     val message: String
+)
+
+data class PasskeyResponse(
+    val credentialId: String,
+    val label: String?,
+    val createdAt: String?,
+    val lastUsedAt: String?,
+    val transports: String?
 )

@@ -14,6 +14,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.Image
+import android.graphics.BitmapFactory
+import android.util.Base64
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -52,6 +57,7 @@ fun SettingsScreen(
         viewModel.fetchUserProfile()
         viewModel.fetchMfaStatus()
         viewModel.fetchSessions()
+        viewModel.fetchPasskeys()
     }
 
     Scaffold(
@@ -322,6 +328,67 @@ fun SecuritySettingsTab(viewModel: AuthViewModel) {
                     Text("Register Android Passkey", fontWeight = FontWeight.Bold)
                 }
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Text(
+                text = "Registered Passkeys",
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            
+            if (state.passkeys.isEmpty()) {
+                Text(
+                    text = "No on-device passkeys registered.",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(start = 4.dp)
+                )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    state.passkeys.forEach { passkey ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .border(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = passkey.label ?: "Unnamed Passkey",
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 13.sp
+                                )
+                                Text(
+                                    text = "ID: ${passkey.credentialId.take(16)}...",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                )
+                            }
+                            IconButton(onClick = { viewModel.deletePasskey(passkey.credentialId) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete Passkey",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // Multi-Factor Authentication
@@ -343,7 +410,7 @@ fun SecuritySettingsTab(viewModel: AuthViewModel) {
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )
                 }
-                val isEmailEnabled = mfa?.enabled == true && mfa.type == "EMAIL"
+                val isEmailEnabled = mfa?.emailOtpEnabled == true
                 Switch(
                     checked = isEmailEnabled,
                     onCheckedChange = { viewModel.toggleEmailOtp(it) }
@@ -353,7 +420,7 @@ fun SecuritySettingsTab(viewModel: AuthViewModel) {
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
             // TOTP Authenticator app Row
-            val isTotpEnabled = mfa?.enabled == true && mfa.type == "TOTP"
+            val isTotpEnabled = mfa?.totpConfirmed == true
             if (isTotpEnabled) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -391,7 +458,24 @@ fun SecuritySettingsTab(viewModel: AuthViewModel) {
                     ) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("Setup Authenticator App", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                            Text("1. Enter this secret in your Authenticator app manually:", fontSize = 12.sp)
+                            Text("1. Scan this QR Code or enter the secret below in your Authenticator app:", fontSize = 12.sp)
+                            
+                            val qrBitmap = remember(totpSetupResponse) {
+                                totpSetupResponse?.qrCodeBase64?.let { decodeBase64ToBitmap(it) }
+                            }
+                            if (qrBitmap != null) {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Image(
+                                        bitmap = qrBitmap,
+                                        contentDescription = "TOTP QR Code",
+                                        modifier = Modifier.size(180.dp)
+                                    )
+                                }
+                            }
+
                             SelectionContainer {
                                 Text(
                                     text = totpSetupResponse?.secret ?: "",
@@ -524,6 +608,22 @@ fun SessionsSettingsTab(
                 Icon(imageVector = Icons.Default.ExitToApp, contentDescription = null)
                 Text("Sign Out Current Session", fontWeight = FontWeight.Bold)
             }
-        }
     }
 }
+}
+
+private fun decodeBase64ToBitmap(base64Str: String): ImageBitmap? {
+    return try {
+        val cleanString = if (base64Str.startsWith("data:image/")) {
+            base64Str.substring(base64Str.indexOf(",") + 1)
+        } else {
+            base64Str
+        }
+        val decodedBytes = Base64.decode(cleanString, Base64.DEFAULT)
+        val bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
+        bitmap.asImageBitmap()
+    } catch (e: Exception) {
+        null
+    }
+}
+

@@ -26,9 +26,11 @@ class AuthRepository(private val context: Context) {
     }
 
     suspend fun logout(): Response<MessageResponse> {
-        val response = api.logout()
-        ScarletClient.cookieJarInstance?.clear()
-        return response
+        return try {
+            api.logout()
+        } finally {
+            ScarletClient.cookieJarInstance?.clear()
+        }
     }
 
     suspend fun getAuthMe(): Response<UserResponse> {
@@ -98,4 +100,7 @@ class AuthRepository(private val context: Context) {
     suspend fun completeMfa(pendingToken: String, method: String, code: String): Response<AuthResponse> {
         return api.completeMfa(CompleteMfaRequest(pendingToken, method, code))
     }
+
+    suspend fun getPasskeys(): Response<List<PasskeyResponse>> = api.getPasskeys()
+    suspend fun deletePasskey(credentialId: String): Response<MessageResponse> = api.deletePasskey(credentialId)
 }

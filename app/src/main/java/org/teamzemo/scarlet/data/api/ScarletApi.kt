@@ -63,6 +63,13 @@ interface ScarletApi {
     @POST("api/webauthn/authenticate")
     suspend fun authenticatePasskey(@Body response: @JvmSuppressWildcards Map<String, Any>): Response<Map<String, Any>>
 
+    @GET("api/webauthn/passkeys")
+    suspend fun getPasskeys(): Response<List<PasskeyResponse>>
+
+    @DELETE("api/webauthn/passkeys/{credentialId}")
+    suspend fun deletePasskey(@Path("credentialId") credentialId: String): Response<MessageResponse>
+
+
     // MFA Management
     @GET("api/mfa/status")
     suspend fun getMfaStatus(): Response<MfaStatusResponse>

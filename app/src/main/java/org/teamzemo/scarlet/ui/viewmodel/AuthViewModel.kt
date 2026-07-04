@@ -45,6 +45,7 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
     fun addLog(msg: String) {
         val time = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
         _logs.value = _logs.value + "[$time] $msg"
+        Log.d(TAG, msg)
     }
 
     fun clearLogs() {
@@ -62,6 +63,7 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
                     addLog("Session active for ${userRes.email}")
                     fetchUserProfile()
                     fetchSessions()
+                    fetchPasskeys()
                 } else {
                     state = state.copy(isLoggedIn = false, user = null)
                     addLog("No active session found")
@@ -104,6 +106,37 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
         }
     }
 
+    fun fetchPasskeys() {
+        viewModelScope.launch {
+            try {
+                val response = repository.getPasskeys()
+                if (response.isSuccessful && response.body() != null) {
+                    state = state.copy(passkeys = response.body()!!)
+                    addLog("Fetched registered passkeys (${response.body()?.size})")
+                }
+            } catch (e: Exception) {
+                addLog("Failed to fetch passkeys: ${e.localizedMessage}")
+            }
+        }
+    }
+
+    fun deletePasskey(credentialId: String) {
+        viewModelScope.launch {
+            try {
+                addLog("Deleting passkey $credentialId...")
+                val response = repository.deletePasskey(credentialId)
+                if (response.isSuccessful) {
+                    addLog("Passkey deleted successfully.")
+                    fetchPasskeys()
+                } else {
+                    addLog("Failed to delete passkey: ${response.errorBody()?.string()}")
+                }
+            } catch (e: Exception) {
+                addLog("Delete passkey error: ${e.localizedMessage}")
+            }
+        }
+    }
+
     fun login(email: String, password: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
             state = state.copy(isLoading = true, error = null)
@@ -114,12 +147,15 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
                     val body = response.body()!!
                     addLog("Login response: ${body.message}")
                     if (body.mfaRequired) {
+                        val methods = body.availableMfaMethods ?: emptyList()
+                        val primaryMethod = methods.firstOrNull() ?: "email_otp"
                         state = state.copy(
                             isMfaRequired = true,
-                            mfaTempToken = body.tempToken,
-                            mfaType = body.mfaType
+                            mfaTempToken = body.pendingToken,
+                            mfaType = primaryMethod,
+                            mfaMethods = methods
                         )
-                        addLog("MFA Required (${body.mfaType}). Please enter MFA code.")
+                        addLog("MFA Required ($primaryMethod). Available options: ${methods.joinToString(", ")}. Please enter MFA code.")
                     } else {
                         state = state.copy(user = body.user, isLoggedIn = true)
                         addLog("Login success. Session created.")
@@ -357,11 +393,13 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
             try {
                 repository.logout()
                 state = AuthState()
+                mfaStatus = null
                 addLog("Logged out successfully.")
                 onSuccess()
             } catch (e: Exception) {
                 addLog("Logout network call failed, clearing local session.")
                 state = AuthState()
+                mfaStatus = null
                 onSuccess()
             } finally {
                 state = state.copy(isLoading = false)
@@ -456,6 +494,11 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
         }
     }
 
+    fun setMfaMethod(method: String) {
+        state = state.copy(mfaType = method)
+        addLog("Switched MFA verification method to $method.")
+    }
+
     fun verifyMfaCode(code: String, onSuccess: () -> Unit) {
         val token = state.mfaTempToken ?: return
         val method = state.mfaType ?: return
@@ -500,7 +543,7 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
                 val response = repository.getMfaStatus()
                 if (response.isSuccessful && response.body() != null) {
                     mfaStatus = response.body()
-                    addLog("Fetched MFA Status (Enabled: ${mfaStatus?.enabled}, Type: ${mfaStatus?.type})")
+                    addLog("Fetched MFA Status (Email OTP Enabled: ${mfaStatus?.emailOtpEnabled}, TOTP Confirmed: ${mfaStatus?.totpConfirmed})")
                 }
             } catch (e: Exception) {
                 addLog("Failed to fetch MFA status: ${e.localizedMessage}")
@@ -588,10 +631,12 @@ data class AuthState(
     val user: UserResponse? = null,
     val profile: UserProfile? = null,
     val sessions: List<UserSession> = emptyList(),
+    val passkeys: List<PasskeyResponse> = emptyList(),
     val error: String? = null,
     val isMfaRequired: Boolean = false,
     val mfaTempToken: String? = null,
-    val mfaType: String? = null
+    val mfaType: String? = null,
+    val mfaMethods: List<String> = emptyList()
 )
 
 class AuthViewModelFactory(private val repository: AuthRepository) : ViewModelProvider.Factory {
